@@ -211,11 +211,10 @@ async function processFiles(files, onProgress) {
 
     return {
       "Agent Name": agent,
-      "Dial Count": dialCount,
-      "Campaign Count": campaignCount,
       "Contacts Assigned": contactCount,
-      "Total Orders Achieved": grandTotal,
+      "Dial Count": dialCount,
       "Order Target": "",
+      "Total Orders Achieved": grandTotal,
       "Call Audit Count": auditCount,
       "Average CQ Score": avgCQ,
     };
@@ -229,8 +228,8 @@ async function processFiles(files, onProgress) {
 
   // Column widths
   ws["!cols"] = [
-    { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 20 },
-    { wch: 22 }, { wch: 14 }, { wch: 16 }, { wch: 18 },
+    { wch: 22 }, { wch: 20 }, { wch: 12 }, { wch: 14 },
+    { wch: 22 }, { wch: 16 }, { wch: 18 },
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, "Agent Performance");
@@ -471,8 +470,8 @@ export default function AgentPipeline() {
             OUTPUT COLUMNS
           </span>
           {[
-            "Agent Name", "Dial Count", "Campaign Count", "Contacts Assigned",
-            "Total Orders Achieved", "Order Target ✏️", "Call Audit Count", "Avg CQ Score",
+            "Agent Name", "Contacts Assigned", "Dial Count", "Order Target",
+            "Total Orders Achieved", "Call Audit Count", "Average CQ Score",
           ].map((col) => (
             <span key={col} style={{
               background: C.surface, border: `1px solid ${C.border}`, borderRadius: 5,
