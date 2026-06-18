@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent Performance Pipeline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0F1117;
+    --surface:  #181C27;
+    --card:     #1E2333;
+    --border:   #2A3050;
+    --accent:   #4F8EF7;
+    --accentDim:#1E3A6E;
+    --green:    #34D399;
+    --greenDim: #0D3D2D;
+    --amber:    #FBBF24;
+    --text:     #E8ECF4;
+    --muted:    #6B7592;
+    --danger:   #F87171;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 32px 16px 60px;
+  }
+
+  .wrap { max-width: 640px; margin: 0 auto; }
+
+  /* ── header ── */
+  .eyebrow {
+    display: inline-block; background: var(--accentDim); color: var(--accent);
+    border-radius: 8px; padding: 4px 14px; font-size: 11px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px;
+  }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 8px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+  /* ── column pills ── */
+  .cols-wrap {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 24px;
+  }
+  .cols-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing:.06em; }
+  .cols-row { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+  .col-pill {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 5px;
+    padding: 3px 9px; font-size: 11px; font-weight: 500;
+  }
+
+  /* ── step badge ── */
+  .step-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .step-badge {
+    border-radius: 6px; padding: 3px 12px; font-size: 13px; font-weight: 600;
+  }
+  .step-badge.partial { background: var(--accentDim); color: var(--accent); }
+  .step-badge.full    { background: var(--greenDim);  color: var(--green);  }
+  .step-hint { color: var(--muted); font-size: 13px; }
+
+  /* ── file cards ── */
+  .cards { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+
+  .card {
+    background: var(--card); border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; cursor: pointer; transition: all .18s ease;
+  }
+  .card.selected { background: var(--accentDim); border-color: var(--accent); }
+  .card.has-file  { border-color: var(--green); }
+  .card.selected.has-file { background: var(--accentDim); border-color: var(--accent); }
+
+  .card-top { display: flex; align-items: center; gap: 10px; }
+
+  .radio {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--muted); background: transparent;
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .radio.active { border-color: var(--accent); background: var(--accent); }
+  .radio-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+
+  .card-icon { font-size: 20px; }
+
+  .card-title { font-weight: 700; font-size: 15px; }
+  .card-desc  { font-size: 12px; color: var(--muted); }
+
+  .loaded-badge {
+    margin-left: auto; background: var(--greenDim); color: var(--green);
+    border-radius: 6px; padding: 2px 9px; font-size: 11px; font-weight: 600;
+  }
+
+  .file-pill {
+    margin-top: 8px; font-size: 12px; color: var(--green);
+    background: var(--greenDim); border-radius: 6px; padding: 4px 10px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .hint-text { margin-top: 8px; font-size: 11px; color: var(--accent); opacity: .8; }
+
+  .upload-btn {
+    margin-top: 10px; width: 100%; padding: 8px 0; border-radius: 8px;
+    background: var(--accent); color: #fff; border: none; font-size: 13px;
+    font-weight: 600; cursor: pointer; transition: opacity .15s;
+  }
+  .upload-btn:hover { opacity: .88; }
+
+  /* ── action ── */
+  #process-btn {
+    width: 100%; padding: 14px 0; border-radius: 10px;
+    border: none; font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: background .15s;
+  }
+  #process-btn.ready    { background: var(--accent); color: #fff; }
+  #process-btn.disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  /* ── progress box ── */
+  .progress-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .progress-title { font-weight: 600; color: var(--accent); }
+
+  .progress-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .progress-label { font-size: 13px; color: var(--muted); }
+  .progress-pct   { font-size: 13px; color: var(--accent); font-weight: 700; }
+  .bar-track { background: var(--border); border-radius: 999px; height: 8px; overflow: hidden; }
+  .bar-fill {
+    height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    transition: width .3s ease;
+  }
+
+  .log-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-family: monospace; font-size: 12px;
+    color: var(--muted); max-height: 130px; overflow-y: auto;
+  }
+  .log-line.active { color: var(--accent); }
+
+  .privacy-note { font-size: 12px; color: var(--muted); }
+
+  /* ── done box ── */
+  .done-box {
+    background: var(--greenDim); border: 1.5px solid var(--green); border-radius: 12px;
+    padding: 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .done-title { font-weight: 700; font-size: 16px; color: var(--green); }
+
+  .btn-row { display: flex; gap: 10px; }
+  .dl-btn {
+    flex: 1; padding: 12px 0; border-radius: 9px;
+    background: var(--green); color: #0a1a0f; border: none;
+    font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .reset-btn {
+    padding: 12px 18px; border-radius: 9px;
+    background: var(--card); color: var(--muted);
+    border: 1px solid var(--border); font-size: 13px; cursor: pointer;
+  }
+
+  /* ── error box ── */
+  .error-box {
+    background: #2A0D0D; border: 1.5px solid var(--danger); border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .error-title { color: var(--danger); font-weight: 700; margin-bottom: 8px; }
+  .error-msg   { font-family: monospace; font-size: 12px; color: #FFAAAA; }
+  .error-reset {
+    margin-top: 12px; padding: 8px 20px; border-radius: 7px;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border); cursor: pointer; font-size: 13px;
+  }
+
+  /* ── footer ── */
+  .footer { margin-top: 28px; text-align: center; font-size: 11px; color: var(--muted); line-height: 1.7; }
+  .footer strong { color: var(--text); }
+
+  #action-area > * + * { margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- header -->
+  <div style="text-align:center; margin-bottom:32px">
+    <div class="eyebrow">Agent Performance Pipeline</div>
+    <h1>Consolidate your agent data</h1>
+    <p class="subtitle">Upload 3 source files → get one clean performance sheet</p>
+  </div>
+
+  <!-- column pills -->
+  <div class="cols-wrap">
+    <div class="cols-label">OUTPUT COLUMNS</div>
+    <div class="cols-row" id="col-pills"></div>
+  </div>
+
+  <!-- step badge -->
+  <div class="step-row">
+    <div class="step-badge partial" id="step-badge">0 / 3 files loaded</div>
+    <div class="step-hint" id="step-hint">Select a file type below, then upload it</div>
+  </div>
+
+  <!-- file cards -->
+  <div class="cards" id="cards"></div>
+
+  <!-- action area -->
+  <div id="action-area">
+    <button id="process-btn" class="disabled" disabled onclick="handleProcess()">
+      Upload all 3 files to continue
+    </button>
+  </div>
+
+  <div class="footer">
+    Accepts <strong>.xlsx · .xls · .csv</strong> for all three files
+    &nbsp;·&nbsp; Processed entirely in-browser &nbsp;·&nbsp;
+    No data is uploaded to any server
+  </div>
+</div>
+
+<script>
+// ── state ──────────────────────────────────────────────────────
+const FILES = {
+  unified: null,
+  order:   null,
+  quality: null,
+};
+let selected = "unified";
+let processingResult = null;
+let logLines = [];
+
+const FILE_TYPES = [
+  {
+    id: "unified",
+    label: "Unified Data",
+    desc: "Large CRM export · ~50 k rows",
+    icon: "🗄️",
+    hint: "Needs: assigned_to · call_attempt_count · campaign_name · contact_name",
+  },
+  {
+    id: "order",
+    label: "Order Data",
+    desc: "Pivot table with Grand Total per agent",
+    icon: "📦",
+    hint: "Needs: Agent Name · Grand Total columns",
+  },
+  {
+    id: "quality",
+    label: "Quality Score",
+    desc: "CQ audit scores per agent",
+    icon: "⭐",
+    hint: "Needs: Agent Name · CQ Scores columns",
+  },
+];
+
+const OUTPUT_COLS = [
+  "Agent Name","Dial Count","Campaign Count","Contacts Assigned",
+  "Total Orders Achieved","Order Target ✏️","Call Audit Count","Avg CQ Score",
+];
+
+// ── render pills ───────────────────────────────────────────────
+document.getElementById("col-pills").innerHTML =
+  OUTPUT_COLS.map(c => `<span class="col-pill">${c}</span>`).join("");
+
+// ── render cards ───────────────────────────────────────────────
+function renderCards() {
+  const container = document.getElementById("cards");
+  container.innerHTML = "";
+  FILE_TYPES.forEach(type => {
+    const isSelected = selected === type.id;
+    const hasFile = !!FILES[type.id];
+    let cls = "card";
+    if (isSelected) cls += " selected";
+    if (hasFile)    cls += " has-file";
+
+    container.innerHTML += `
+      <div class="${cls}" id="card-${type.id}" onclick="selectCard('${type.id}')">
+        <div class="card-top">
+          <div class="radio ${isSelected ? "active" : ""}" id="radio-${type.id}">
+            ${isSelected ? '<div class="radio-dot"></div>' : ""}
+          </div>
+          <span class="card-icon">${type.icon}</span>
+          <div>
+            <div class="card-title">${type.label}</div>
+            <div class="card-desc">${type.desc}</div>
+          </div>
+          ${hasFile ? '<div class="loaded-badge">✓ Loaded</div>' : ""}
+        </div>
+        ${hasFile ? `<div class="file-pill">📄 ${FILES[type.id].name}</div>` : ""}
+        ${isSelected && !hasFile ? `<div class="hint-text">${type.hint}</div>` : ""}
+        <input type="file" accept=".xlsx,.xls,.csv" id="input-${type.id}" style="display:none"
+          onchange="handleFileInput('${type.id}', this)" />
+        ${isSelected ? `<button class="upload-btn" onclick="event.stopPropagation(); document.getElementById('input-${type.id}').click()">
+          ${hasFile ? "Replace file" : "Choose file (.xlsx / .csv)"}
+        </button>` : ""}
+      </div>
+    `;
+  });
+  updateStepBadge();
+  updateProcessBtn();
+}
+
+function selectCard(id) {
+  selected = id;
+  renderCards();
+}
+
+function handleFileInput(typeId, input) {
+  if (input.files[0]) {
+    FILES[typeId] = input.files[0];
+    // auto-advance to next empty
+    const order = ["unified","order","quality"];
+    const next = order.find(id => id !== typeId && !FILES[id]);
+    if (next) selected = next;
+    renderCards();
+  }
+}
+
+function updateStepBadge() {
+  const loaded = Object.values(FILES).filter(Boolean).length;
+  const badge = document.getElementById("step-badge");
+  const hint  = document.getElementById("step-hint");
+  badge.textContent = `${loaded} / 3 files loaded`;
+  badge.className = "step-badge " + (loaded === 3 ? "full" : "partial");
+  hint.textContent = loaded === 3 ? "All files loaded — ready to process!" : "Select a file type below, then upload it";
+}
+
+function updateProcessBtn() {
+  const btn = document.getElementById("process-btn");
+  const allLoaded = FILES.unified && FILES.order && FILES.quality;
+  if (allLoaded) {
+    btn.className = "ready";
+    btn.disabled = false;
+    btn.textContent = "⚙️  Process Files & Generate Report";
+  } else {
+    btn.className = "disabled";
+    btn.disabled = true;
+    btn.textContent = "Upload all 3 files to continue";
+  }
+}
+
+// ── progress helpers ───────────────────────────────────────────
+let currentPct = 0;
+function showProcessing() {
+  document.getElementById("action-area").innerHTML = `
+    <div class="progress-box">
+      <div class="progress-title">⚙️ Processing…</div>
+      <div>
+        <div class="progress-row">
+          <span class="progress-label" id="prog-label">Starting…</span>
+          <span class="progress-pct" id="prog-pct">0%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="bar-fill" style="width:0%"></div></div>
+      </div>
+      <div class="log-box" id="log-box"></div>
+      <div class="privacy-note">💡 All processing happens in your browser — no data leaves your device.</div>
+    </div>
+  `;
+}
+
+function updateProgress(pct, msg) {
+  currentPct = pct;
+  const label = document.getElementById("prog-label");
+  const pctEl = document.getElementById("prog-pct");
+  const bar   = document.getElementById("bar-fill");
+  if (label) label.textContent = msg;
+  if (pctEl) pctEl.textContent = pct + "%";
+  if (bar)   bar.style.width = pct + "%";
+  addLog(msg);
+}
+
+function addLog(msg) {
+  logLines.push(msg);
+  if (logLines.length > 40) logLines = logLines.slice(-40);
+  const box = document.getElementById("log-box");
+  if (box) {
+    box.innerHTML = logLines.map((l, i) =>
+      `<div class="log-line ${i === logLines.length - 1 ? "active" : ""}">
+        ${i === logLines.length - 1 ? "▶" : "✓"} ${l}
+      </div>`
+    ).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function showDone(rowCount) {
+  const area = document.getElementById("action-area");
+  area.innerHTML = `
+    <div class="done-box">
+      <div class="done-title">✅ Report ready — ${rowCount} agents processed</div>
+      <div>
+        <div class="progress-row">
+          <span class="progress-label">Complete</span>
+          <span class="progress-pct" style="color:var(--green)">100%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:100%"></div></div>
+      </div>
+      <div class="log-box" id="log-box-done"></div>
+      <div class="btn-row">
+        <button class="dl-btn" onclick="handleDownload()">⬇️  Download Agent_Performance.xlsx</button>
+        <button class="reset-btn" onclick="handleReset()">Reset</button>
+      </div>
+    </div>
+  `;
+  // fill log
+  const box = document.getElementById("log-box-done");
+  if (box) {
+    box.innerHTML = logLines.map((l, i) =>
+      `<div class="log-line">${i === logLines.length - 1 ? "✓" : "✓"} ${l}</div>`
+    ).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function showError(msg) {
+  document.getElementById("action-area").innerHTML = `
+    <div class="error-box">
+      <div class="error-title">❌ Processing failed</div>
+      <div class="error-msg">${msg}</div>
+      <button class="error-reset" onclick="handleReset()">Try again</button>
+    </div>
+  `;
+}
+
+function handleReset() {
+  FILES.unified = null;
+  FILES.order   = null;
+  FILES.quality = null;
+  selected = "unified";
+  logLines = [];
+  processingResult = null;
+  document.getElementById("action-area").innerHTML = `
+    <button id="process-btn" class="disabled" disabled onclick="handleProcess()">
+      Upload all 3 files to continue
+    </button>
+  `;
+  renderCards();
+}
+
+// ── download ───────────────────────────────────────────────────
+function handleDownload() {
+  if (!processingResult) return;
+  const blob = new Blob([processingResult.wbOut], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const today = new Date().toISOString().slice(0,10);
+  a.download = `Agent_Performance_${today}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── file reader ────────────────────────────────────────────────
+function readFileAsync(file) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = e => res(e.target.result);
+    reader.onerror = () => rej(new Error("File read failed: " + file.name));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseWB(ab) {
+  return XLSX.read(ab, { type: "array", cellDates: false });
+}
+
+function sheetToRows(wb, idx = 0) {
+  const ws = wb.Sheets[wb.SheetNames[idx]];
+  return XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+}
+
+function sheetToObjects(wb, idx = 0) {
+  const ws = wb.Sheets[wb.SheetNames[idx]];
+  return XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── fuzzy name lookup (trim + lowercase) ──────────────────────
+function fuzzyGet(map, name) {
+  const lower = name.trim().toLowerCase();
+  const key = Object.keys(map).find(k => k.trim().toLowerCase() === lower);
+  return key !== undefined ? map[key] : undefined;
+}
+
+// ── main processing pipeline ───────────────────────────────────
+async function handleProcess() {
+  logLines = [];
+  showProcessing();
+
+  try {
+    // ── UNIFIED DATA ──
+    updateProgress(5, "Reading Unified Data file…");
+    await sleep(10);
+    const uAB = await readFileAsync(FILES.unified);
+
+    updateProgress(10, "Parsing Unified Data (large file — please wait)…");
+    await sleep(10);
+    const uWB = parseWB(uAB);
+    const uRows = sheetToObjects(uWB);
+
+    updateProgress(20, `Unified Data loaded: ${uRows.length.toLocaleString()} rows — aggregating…`);
+    await sleep(10);
+
+    const dialMap     = {};
+    const campaignMap = {};
+    const contactMap  = {};
+    const CHUNK = 5000;
+
+    for (let i = 0; i < uRows.length; i += CHUNK) {
+      const slice = uRows.slice(i, i + CHUNK);
+      for (const row of slice) {
+        const agent = (row["assigned_to"] || "").toString().trim();
+        if (!agent) continue;
+        if (!dialMap[agent]) {
+          dialMap[agent]     = 0;
+          campaignMap[agent] = new Set();
+          contactMap[agent]  = new Set();
+        }
+        dialMap[agent] += Number(row["call_attempt_count"]) || 0;
+        if (row["campaign_name"]) campaignMap[agent].add(row["campaign_name"].toString().trim());
+        if (row["contact_name"])  contactMap[agent].add(row["contact_name"].toString().trim());
+      }
+      await sleep(0);
+      const processed = Math.min(i + CHUNK, uRows.length);
+      const pct = 20 + Math.round((processed / uRows.length) * 30);
+      updateProgress(Math.min(pct, 50),
+        `Unified: processed ${processed.toLocaleString()} / ${uRows.length.toLocaleString()} rows…`);
+    }
+
+    updateProgress(52, `Unified aggregation complete — ${Object.keys(dialMap).length} agents found`);
+    await sleep(10);
+
+    // ── ORDER DATA ──
+    updateProgress(55, "Reading Order Data file…");
+    await sleep(10);
+    const oAB   = await readFileAsync(FILES.order);
+    const oWB   = parseWB(oAB);
+    const oRaws = sheetToRows(oWB);
+
+    updateProgress(60, "Extracting agent Grand Totals from pivot…");
+    await sleep(10);
+
+    let headerRow = -1, agentCol = -1, gtCol = -1;
+    for (let i = 0; i < oRaws.length; i++) {
+      const r = oRaws[i];
+      const ai = r.findIndex(c => c && c.toString().toLowerCase().includes("agent name"));
+      if (ai !== -1) {
+        headerRow = i; agentCol = ai;
+        gtCol = r.findIndex(c => c && c.toString().toLowerCase().includes("grand total"));
+        break;
+      }
+    }
+
+    const orderMap = {};
+    if (headerRow !== -1) {
+      for (let i = headerRow + 1; i < oRaws.length; i++) {
+        const r = oRaws[i];
+        const name = (r[agentCol] || "").toString().trim();
+        if (!name || name.toLowerCase() === "grand total") continue;
+        orderMap[name] = Number(r[gtCol]) || 0;
+      }
+    }
+    updateProgress(65, `Order data: ${Object.keys(orderMap).length} agents with Grand Total`);
+    await sleep(10);
+
+    // ── QUALITY DATA ──
+    updateProgress(67, "Reading Quality Score file…");
+    await sleep(10);
+    const qAB   = await readFileAsync(FILES.quality);
+    const qWB   = parseWB(qAB);
+    const qRows = sheetToObjects(qWB);
+
+    updateProgress(70, "Aggregating CQ scores per agent…");
+    await sleep(10);
+
+    const qualCountMap = {};
+    const qualSumMap   = {};
+    let agentColKey = null, cqColKey = null;
+
+    if (qRows.length > 0) {
+      const keys = Object.keys(qRows[0]);
+      agentColKey = keys.find(k => k.toLowerCase().includes("agent")) || keys[0];
+      cqColKey    = keys.find(k => k.toLowerCase().includes("cq") || k.toLowerCase().includes("score")) || keys[1];
+    }
+
+    for (const row of qRows) {
+      const agent = (row[agentColKey] || "").toString().trim();
+      if (!agent) continue;
+      qualCountMap[agent] = (qualCountMap[agent] || 0) + 1;
+      qualSumMap[agent]   = (qualSumMap[agent]   || 0) + (Number(row[cqColKey]) || 0);
+    }
+    updateProgress(75, `Quality data: ${Object.keys(qualCountMap).length} distinct agent entries`);
+    await sleep(10);
+
+    // ── BUILD OUTPUT ──
+    updateProgress(80, "Building consolidated output table…");
+    await sleep(10);
+
+    const allAgents = [...new Set([
+      ...Object.keys(orderMap),
+      ...Object.keys(dialMap),
+    ])].filter(a => a && a.toLowerCase() !== "grand total");
+
+    const outputRows = allAgents.map(agent => {
+      const dialCount     = fuzzyGet(dialMap, agent) ?? 0;
+      const campaignCount = (() => {
+        const s = fuzzyGet(campaignMap, agent);
+        return s ? s.size : 0;
+      })();
+      const contactCount  = (() => {
+        const s = fuzzyGet(contactMap, agent);
+        return s ? s.size : 0;
+      })();
+      const grandTotal  = fuzzyGet(orderMap, agent)    ?? 0;
+      const auditCount  = fuzzyGet(qualCountMap, agent) ?? 0;
+      const avgCQ = auditCount > 0
+        ? Math.round(((fuzzyGet(qualSumMap, agent) ?? 0) / auditCount) * 10000) / 10000
+        : 0;
+
+      return {
+        "Agent Name":           agent,
+        "Dial Count":           dialCount,
+        "Campaign Count":       campaignCount,
+        "Contacts Assigned":    contactCount,
+        "Total Orders Achieved":grandTotal,
+        "Order Target":         "",
+        "Call Audit Count":     auditCount,
+        "Average CQ Score":     avgCQ,
+      };
+    });
+
+    updateProgress(88, `Table built — ${outputRows.length} agents · generating Excel…`);
+    await sleep(10);
+
+    // ── WRITE XLSX ──
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(outputRows);
+    ws["!cols"] = [
+      {wch:22},{wch:12},{wch:16},{wch:20},
+      {wch:22},{wch:14},{wch:16},{wch:18},
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, "Agent Performance");
+
+    updateProgress(95, "Finalising output workbook…");
+    await sleep(50);
+
+    const wbOut = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    updateProgress(100, "Done! Report is ready.");
+
+    processingResult = { wbOut, rowCount: outputRows.length };
+    showDone(outputRows.length);
+
+  } catch (err) {
+    console.error(err);
+    showError(err.message || "Unknown error during processing");
+  }
+}
+
+// ── init ───────────────────────────────────────────────────────
+renderCards();
+</script>
+</body>
+</html>
