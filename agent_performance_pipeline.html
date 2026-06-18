@@ -259,8 +259,8 @@ const FILE_TYPES = [
 ];
 
 const OUTPUT_COLS = [
-  "Agent Name","Contacts Assigned","Dial Count","Order Target",
-  "Total Orders Achieved","Call Audit Count","Average CQ Score",
+  "Agent Name","Contacts Assigned","Dial Count","Campaign Count",
+  "Order Target","Total Orders Achieved","Call Audit Count","Average CQ Score",
 ];
 
 // ── render pills ───────────────────────────────────────────────
@@ -629,6 +629,7 @@ async function handleProcess() {
         "Agent Name":           agent,
         "Contacts Assigned":    contactCount,
         "Dial Count":           dialCount,
+        "Campaign Count":       campaignCount,
         "Order Target":         "",
         "Total Orders Achieved":grandTotal,
         "Call Audit Count":     auditCount,
@@ -643,8 +644,8 @@ async function handleProcess() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(outputRows);
     ws["!cols"] = [
-      {wch:22},{wch:20},{wch:12},{wch:14},
-      {wch:22},{wch:16},{wch:18},
+      {wch:22},{wch:20},{wch:12},{wch:16},
+      {wch:14},{wch:22},{wch:16},{wch:18},
     ];
     XLSX.utils.book_append_sheet(wb, ws, "Agent Performance");
 
